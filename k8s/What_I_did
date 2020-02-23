@@ -1,0 +1,167 @@
+1. Downloads
+	- AKS Engine:
+		Latest release downloaded from here https://github.com/Azure/aks-engine/releases/tag/v0.46.3
+			https://github.com/Azure/aks-engine/releases/download/v0.46.3/aks-engine-v0.46.3-linux-amd64.zip
+			mkdir /tmp/aks ; cd /tmp/aks; wget * ; unzip *; sudo mv aks-engine /usr/local/bin
+	- AZ
+		curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+	-HELM
+		https://get.helm.sh/helm-v3.1.0-linux-amd64.tar.gz
+		mkdir /tmp/aks ; cd /tmp/aks; wget * ; tar -zxvf *; sudo mv helm /usr/local/bin
+
+2. Create New group
+	create a resource group. A resource group is a container that holds related resources for an Azure solution. In Azure, you logically group related resources such as storage accounts, virtual networks, and virtual machines (VMs) to deploy, manage, and maintain them as a single entity. In this case, we want to deploy, manage and maintain the whole Kubernetes cluster as a single entity.
+		A. az group create --name aadir-k8s-cluster --location westeurope
+
+		aadir@YK-LT0058:/mnt/c/Users/aadir/PycharmProjects/k8s_hw_msft$ az group create --name aadir-k8s-cluster --location westeurope
+			{
+			  "id": "/subscriptions/d9176804-8e73-4c38-9dd4-50cedd6e5f82/resourceGroups/aadir-k8s-cluster",
+			  "location": "westeurope",
+			  "managedBy": null,
+			  "name": "aadir-k8s-cluster",
+			  "properties": {
+			    "provisioningState": "Succeeded"
+			  },
+			  "tags": null,
+			  "type": "Microsoft.Resources/resourceGroups"
+			}
+		B.  az group list -o table
+			Name                            Location    Status
+			------------------------------  ----------  ---------
+			NetworkWatcherRG                westeurope  Succeeded
+			aadir-k8s-cluster               westeurope  Succeeded
+3. create a service principal for the Kubernetes cluster so it can talk to any resources that are a part of the same resource group.
+	○ ad - active directory
+	○ sp - Manage Azure Active Directory service principals for automation authentication
+	○ az ad sp create-for-rbac : Create a service principal and configure its access to Azure
+	    resources.
+	adir@Azure:~$ az ad sp create-for-rbac --role="Owner" --scopes="/subscriptions/d9176804-8e73-4c38-9dd4-50cedd6e5f82/resourceGroups/aadir-k8s-cluster"
+	Creating a role assignment under the scope of "/subscriptions/d9176804-8e73-4c38-9dd4-50cedd6e5f82/resourceGroups/aadir-k8s-cluster"
+		{
+		  "appId": "0ac19351-b8dd-4ddf-850a-4221c8c51721",
+		  "displayName": "azure-cli-2020-02-23-10-45-36",
+		  "name": "http://azure-cli-2020-02-23-10-45-36",
+		  "password": "7cf477fd-1cc2-46d0-af1d-33bd05f51af5",
+		  "tenant": "9c69ccc0-3169-408b-9d39-3fccee009372"
+		}
+4. Deploy Cluster
+	cd ~/projects;  git clone https://github.com/Azure/aks-engine.git  ; cd aks-engine 
+	run aks-engine deploy with the appropriate arguments
+	
+	aks-engine deploy \
+	--subscription-id d9176804-8e73-4c38-9dd4-50cedd6e5f82 \
+	--resource-group aadir-k8s-cluster \
+	--location westeurope \
+	--client-id 0ac19351-b8dd-4ddf-850a-4221c8c51721 \
+	--client-secret 7cf477fd-1cc2-46d0-af1d-33bd05f51af5 \
+	--api-model kubernetes.json
+	
+	INFO[0021] Starting ARM Deployment aadir-k8s-cluster-1313927704 in resource group aadir-k8s-cluster. This will take some time...
+	INFO[0312] Finished ARM Deployment (aadir-k8s-cluster-1313927704). Succeeded
+
+6. take conf and move set them as default for kubectl
+	mkdir .kube
+	cp -v  _output/aadir-k8s-cluster/kubeconfig/kubeconfig.westeurope.json ~/.kube/config
+
+	# check status:
+	kubectl get all
+		NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+		service/kubernetes   ClusterIP   10.0.0.1     <none>        443/TCP   84s
+
+7. Install nginx with helm (https://docs.microsoft.com/bs-cyrl-ba/azure/aks/ingress-basic)
+	# Create a namespace for your ingress resources
+	7.1 kubectl create namespace ingress-basic
+	
+	# Add the official stable repository
+	7.2 helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+
+	# Use Helm to deploy an NGINX ingress controller
+	helm install nginx-ingress stable/nginx-ingress \
+    --namespace ingress-basic \
+    --set controller.replicaCount=2 \
+    --set controller.nodeSelector."beta\.kubernetes\.io/os"=linux \
+    --set defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux
+
+		NAME: nginx-ingress
+		LAST DEPLOYED: Fri Feb 21 22:22:15 2020
+		NAMESPACE: ingress-basic
+		STATUS: deployed
+		REVISION: 1
+		TEST SUITE: None
+		NOTES:
+		The nginx-ingress controller has been installed.
+		It may take a few minutes for the LoadBalancer IP to be available.
+		You can watch the status by running 'kubectl --namespace ingress-basic get services -o wide -w nginx-ingress-controller'
+
+		An example Ingress that makes use of the controller:
+
+		  apiVersion: extensions/v1beta1
+		  kind: Ingress
+		  metadata:
+		    annotations:
+		      kubernetes.io/ingress.class: nginx
+		    name: example
+		    namespace: foo
+		  spec:
+		    rules:
+		      - host: www.example.com
+		        http:
+		          paths:
+		            - backend:
+		                serviceName: exampleService
+		                servicePort: 80
+		              path: /
+		    # This section is only required if TLS is to be enabled for the Ingress
+		    tls:
+		        - hosts:
+		            - www.example.com
+		          secretName: example-tls
+
+		If TLS is enabled for the Ingress, a Secret containing the certificate and key must also be provided:
+
+		  apiVersion: v1
+		  kind: Secret
+		  metadata:
+		    name: example-tls
+		    namespace: foo
+		  data:
+		    tls.crt: <base64 encoded cert>
+		    tls.key: <base64 encoded key>
+		  type: kubernetes.io/tls
+
+	7.3 check nginx status 
+	 	kubectl get service -l app=nginx-ingress --namespace ingress-basic
+			NAME                            TYPE           CLUSTER-IP    EXTERNAL-IP     PORT(S)                      AGE
+			nginx-ingress-controller        LoadBalancer   10.0.226.66   13.81.202.121   80:31358/TCP,443:32203/TCP   17m
+			nginx-ingress-default-backend   ClusterIP      10.0.2.237    <none>          80/TCP                       17m
+
+==================================================================================
+8. Bring up service/deploymnts/ns for a and b:
+	8.1) kubectl apply -f  service_and_deployment_a.yaml -f service_and_deployment_b.yaml
+
+9. service A can't talk with service B:
+	9.1 Create Network Policy rules:
+	create:
+		kubectl apply -f deny-from-other-namespaces.json
+	get:
+		kubectl get networkpolicy  -n ns-a-service
+		kubectl get networkpolicy -n ns-b-service
+	delete:
+		kubectl delete networkpolicy -n ns-a-service  deny-from-other-namespaces
+		kubectl delete networkpolicy -n ns-b-service  deny-from-other-namespaces
+
+	test connectivity:
+		kubectl  exec -it aservice-7f6bdd6988-wb58v /bin/bash
+		wget bservice.ns-b-service.svc.cluster.local/serviceB
+====================================================================================
+
+10.
+
+automated deployment
+	kubectl apply -f service_and_deployment_a.yaml
+	kubectl apply -f service_and_deployment_b.yaml
+	kubectl apply -f deny-from-other-namespaces.json
+
+Cleanup
+	kubectl delete all --all

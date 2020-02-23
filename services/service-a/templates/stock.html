@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="refresh" content="60">
+<style>
+table, th, td {
+  border: 3px solid black;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 15px;
+  text-align: left;
+}
+table#t01 {
+  width: 60%;
+  background-color: #f1f1c1;
+}
+</style>
+</head>
+<body>
+
+<h1>Bitcoin<h1>
+  <h2>Is an innovative payment network and a new kind of money</h2>
+  <img src="/static/bitcoin.jpg">
+  <table id="t01">
+  <tr>
+    <th colspan="2">
+    	<center>Bitcoin (BTC-USD)</center>
+    </th>
+  </tr>
+  <tr>
+    <td>last minute value</td>
+    <td>{{last_minute}}</td>
+  </tr>
+  <tr>
+    <td>last 10 minutes average</td>
+    <td>{{last_10_average}}</td>
+  </tr>
+</table>
+
+</body>
+</html>

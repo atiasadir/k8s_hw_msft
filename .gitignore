@@ -1,0 +1,4 @@
+.idea
+k8s/aks-engine/_output
+k8s/aks-engine/translations
+*.pyc
