@@ -11,7 +11,7 @@ def get_stock_value(stock_name):
         return render_template("stock.html",last_minute=str(value), last_10_average=str(movingAverageBitcoin.average()), stock_name=stock_name)
     except Exception as e:
         print(e)
-        return render_template("bad-input.html", stock_name=name)
+        return render_template("bad-input.html", stock_name=stock_name)
 
 @app.route("/")
 def index():
@@ -19,7 +19,7 @@ def index():
 
 @app.route("/serviceA")
 def servicea():
-    return get_stock_value("btc-usd")
+    return get_stock_value("gur_evgeny")
 
 @app.route("/ready")
 def ready():
